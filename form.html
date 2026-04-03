@@ -3,72 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Product Form</title>
+    <title>Product CRUD</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
-        form { display: flex; flex-direction: column; gap: 10px; background: #f4f4f4; padding: 20px; border-radius: 8px; }
-        input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 10px; background-color: #3ecf8e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #36b37e; }
-        .status { margin-top: 10px; font-weight: bold; }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:system-ui;background:#0e1117;color:#e6edf3;padding:20px;max-width:900px;margin:0 auto}
+        h2{color:#3ecf8e;margin-bottom:12px}
+        .box{background:#161b22;border:1px solid #30363d;padding:16px;border-radius:8px;margin-bottom:16px}
+        input{width:100%;padding:9px 12px;background:#0e1117;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:14px;margin-bottom:10px;outline:none}
+        input:focus{border-color:#3ecf8e}
+        .btn{padding:9px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600}
+        .bg{background:#3ecf8e;color:#0e1117}.bg:hover{background:#36b37e}
+        .bo{background:transparent;border:1px solid #30363d;color:#7d8590}.bo:hover{color:#e6edf3}
+        .bs{padding:5px 9px;font-size:12px}
+        .bd{background:rgba(248,81,73,.1);color:#f85149;border:none}.bd:hover{background:rgba(248,81,73,.2)}
+        .by{background:rgba(210,153,34,.15);color:#d29922;border:none}.by:hover{background:rgba(210,153,34,.25)}
+        table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px}
+        th{text-align:left;padding:10px;background:#161b22;color:#484f58;font-size:11px;text-transform:uppercase;border-bottom:1px solid #30363d}
+        td{padding:10px;border-bottom:1px solid #21262d}
+        .price{color:#3ecf8e;font-weight:600}
+        .acts{display:flex;gap:4px}
+        .ii{padding:5px 8px;background:#0e1117;border:1px solid #3ecf8e;border-radius:4px;color:#e6edf3;font-size:13px;outline:none;width:100%}
+        #empty{padding:40px;text-align:center;color:#484f58;display:none}
+        #debug{background:#0e1117;border:1px solid #30363d;border-radius:8px;padding:14px;font-family:monospace;font-size:12px;line-height:1.7;color:#7d8590;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;display:none}
+        .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+        .dot-ok{background:#3ecf8e}.dot-err{background:#f85149}.dot-wait{background:#d29922}
+        .rn{animation:rf 1.2s}@keyframes rf{0%{background:rgba(62,207,142,.15)}100%{background:transparent}}
     </style>
 </head>
 <body>
 
-    <h2>Add New Product</h2>
-    
+<h2>Product Manager</h2>
+
+<!-- Debug / Connection Panel -->
+<div class="box" style="border-color:#d29922">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:13px;color:#d29922;font-weight:600">
+            <span class="dot dot-wait" id="connDot"></span>
+            <span id="connText">Not connected yet</span>
+        </span>
+        <button class="btn by bs" onclick="testConnection()">Test Connection</button>
+    </div>
+    <div id="debug"></div>
+</div>
+
+<!-- Form -->
+<div class="box">
     <form id="productForm">
-        <label for="name">Product Name</label>
-        <input type="text" id="name" name="product_name" required placeholder="e.g. Apple MacBook">
-
-        <label for="price">Price</label>
-        <input type="number" id="price" name="price" step="0.01" required placeholder="e.g. 999.99">
-
-        <button type="submit">Save to Supabase</button>
+        <input type="hidden" id="editId" value="">
+        <input type="text" id="name" placeholder="Product name" required>
+        <input type="number" id="price" placeholder="Price" step="0.01" min="0" required>
+        <div style="display:flex;gap:8px">
+            <button type="submit" class="btn bg" id="subBtn">Save Product</button>
+            <button type="button" class="btn bo" id="cancelBtn" style="display:none" onclick="cancelEdit()">Cancel</button>
+        </div>
     </form>
+    <div id="status" style="margin-top:10px;font-weight:bold;font-size:14px;min-height:20px"></div>
+</div>
 
-    <div id="status" class="status"></div>
+<!-- Search -->
+<input type="text" id="search" placeholder="Search name or ID..." oninput="render()" style="margin-bottom:14px">
 
-    <script>
-        // ============================================================
-        // IMPORTANT: REPLACE THESE WITH YOUR REAL KEYS
-        // The Anon Key MUST look like: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        // ============================================================
-        const SUPABASE_URL = 'https://hhyljcqosuzhvqtolkro.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoeWxqY3Fvc3V6aHZxdG9sa3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU2MDMsImV4cCI6MjA5MDcxMTYwM30.zn5yN_K2v_cTjHTNFDrwEvlfacl7hyUCcPikINAWyS8';
+<!-- Table -->
+<table>
+    <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Actions</th></tr></thead>
+    <tbody id="tbody"></tbody>
+</table>
+<div id="empty">No products found.</div>
 
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<script>
+var SUPABASE_URL = 'https://hhyljcqosuzhvqtolkro.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoeWxqY3Fvc3V6aHZxdG9sa3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU2MDMsImV4cCI6MjA5MDcxMTYwM30.zn5yN_K2v_cTjHTNFDrwEvlfacl7hyUCcPikINAWyS8';
 
-        const form = document.getElementById('productForm');
-        const statusDiv = document.getElementById('status');
+var _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+var form = document.getElementById('productForm');
+var statusDiv = document.getElementById('status');
+var debugDiv = document.getElementById('debug');
+var connDot = document.getElementById('connDot');
+var connText = document.getElementById('connText');
+var all = [];
+var editRow = null;
 
-            const productName = document.getElementById('name').value;
-            const productPrice = parseFloat(document.getElementById('price').value);
+function log(msg) {
+    debugDiv.style.display = 'block';
+    debugDiv.textContent += msg + '\n';
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+}
 
-            const newProduct = {
-                product_name: productName,
-                price: productPrice
-            };
+function setStatus(msg, ok) {
+    statusDiv.innerHTML = ok
+        ? '<span style="color:#3ecf8e">' + msg + '</span>'
+        : '<span style="color:#f85149">' + msg + '</span>';
+    setTimeout(function() { statusDiv.innerHTML = ''; }, 5000);
+}
 
-            // Insert Data
-            const { data, error } = await _supabase
-                .from('products')
-                .insert([newProduct])
-                .select();
+function setConn(ok, text) {
+    connDot.className = ok ? 'dot dot-ok' : 'dot dot-err';
+    connText.textContent = text;
+}
 
-            if (error) {
-                console.error(error);
-                statusDiv.innerHTML = `<span style="color:red">Error: ${error.message}</span>`;
-            } else {
-                statusDiv.innerHTML = `<span style="color:green">Success! Product ID: ${data[0].id}</span>`;
-                form.reset();
-                console.log('Saved data:', data);
-            }
-        });
-    </script>
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ========== TEST CONNECTION ==========
+async function testConnection() {
+    debugDiv.style.display = 'block';
+    debugDiv.textContent = '';
+    setConn(false, 'Testing...');
+    connDot.className = 'dot dot-wait';
+
+    log('1. Testing Supabase client creation... OK');
+    log('2. URL: ' + SUPABASE_URL);
+    log('3. Key: ' + SUPABASE_ANON_KEY.substring(0, 20) + '...');
+
+    log('4. Trying SELECT * FROM products ...');
+
+    var result = await _supabase.from('products').select('*').limit(1);
+
+    if (result.error) {
+        log('');
+        log('=== ERROR FOUND ===');
+        log('Code: ' + result.error.code);
+        log('Message: ' + result.error.message);
+        log('Hint: ' + (result.error.hint || 'none'));
+        log('Details: ' + (result.error.details || 'none'));
+        log('');
+        log('=== MOST LIKELY FIX ===');
+        if (result.error.code === '42501' || result.error.message.indexOf('policy') !== -1 || result.error.message.indexOf('RLS') !== -1) {
+            log('RLS is blocking SELECT. Go to Supabase Dashboard:');
+            log('  -> Authentication -> Policies -> products table');
+            log('  -> Add policy: Enable read access for anon');
+            log('  -> Or run this SQL in Supabase SQL Editor:');
+            log('');
+            log("  CREATE POLICY \"Allow anon select\" ON products FOR SELECT USING (true);");
+            log("  CREATE POLICY \"Allow anon insert\" ON products FOR INSERT WITH CHECK (true);");
+            log("  CREATE POLICY \"Allow anon update\" ON products FOR UPDATE USING (true);");
+            log("  CREATE POLICY \"Allow anon delete\" ON products FOR DELETE USING (true);");
+        } else if (result.error.code === '42P01') {
+            log('Table "products" does not exist!');
+            log('Go to Supabase Dashboard -> Table Editor -> Create table "products"');
+            log('Columns needed: id (bigint, auto), product_name (text), price (numeric)');
+        } else if (result.error.code === '42703') {
+            log('Column name mismatch! Check your column names.');
+            log('Expected: product_name, price');
+            log('Your table might use different column names.');
+        } else {
+            log('Unknown error. Check the message above.');
+        }
+        setConn(false, 'Failed - check debug below');
+    } else {
+        log('5. SELECT works! Found ' + (result.data ? result.data.length : 0) + ' row(s) in test.');
+        log('6. Connection is GOOD.');
+        setConn(true, 'Connected - working');
+        // Now load all
+        await load();
+    }
+}
+
+// ========== FETCH ALL ==========
+async function load() {
+    var result = await _supabase.from('products').select('*').order('id', { ascending: true });
+
+    if (result.error) {
+        console.error('Fetch error:', result.error);
+        setStatus('Fetch error: ' + result.error.message, false);
+        log('Fetch error: ' + result.error.message);
+        all = [];
+        render();
+        return;
+    }
+    all = result.data || [];
+    log('Loaded ' + all.length + ' product(s)');
+    render();
+}
+
+// ========== RENDER TABLE ==========
+function render(highlightId) {
+    var q = document.getElementById('search').value.toLowerCase();
+    var list = all.filter(function(p) {
+        return p.product_name.toLowerCase().indexOf(q) !== -1
+            || String(p.id).indexOf(q) !== -1;
+    });
+
+    var tb = document.getElementById('tbody');
+    var em = document.getElementById('empty');
+    tb.innerHTML = '';
+
+    if (list.length === 0) { em.style.display = 'block'; return; }
+    em.style.display = 'none';
+
+    for (var i = 0; i < list.length; i++) {
+        var p = list[i];
+        var tr = document.createElement('tr');
+        if (highlightId === p.id) tr.className = 'rn';
+
+        if (editRow === p.id) {
+            tr.innerHTML =
+                '<td>' + p.id + '</td>' +
+                '<td><input class="ii" id="in' + p.id + '" value="' + esc(p.product_name) + '"></td>' +
+                '<td><input class="ii" type="number" step="0.01" id="ip' + p.id + '" value="' + p.price + '" style="width:90px"></td>' +
+                '<td class="acts">' +
+                '<button class="btn bg bs" onclick="saveInline(' + p.id + ')">Save</button>' +
+                '<button class="btn bo bs" onclick="editRow=null;render()">X</button>' +
+                '</td>';
+        } else {
+            tr.innerHTML =
+                '<td style="color:#484f58">' + p.id + '</td>' +
+                '<td>' + esc(p.product_name) + '</td>' +
+                '<td class="price">$' + Number(p.price).toFixed(2) + '</td>' +
+                '<td class="acts">' +
+                '<button class="btn bo bs" onclick="startInline(' + p.id + ')">Edit</button>' +
+                '<button class="btn bd bs" onclick="delProduct(' + p.id + ')">Del</button>' +
+                '</td>';
+        }
+        tb.appendChild(tr);
+    }
+}
+
+// ========== CREATE / UPDATE ==========
+form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    var productName = document.getElementById('name').value;
+    var productPrice = parseFloat(document.getElementById('price').value);
+    var eid = document.getElementById('editId').value;
+
+    if (!productName) { setStatus('Enter a product name', false); return; }
+    if (isNaN(productPrice)) { setStatus('Enter a valid price', false); return; }
+
+    var result;
+
+    if (eid) {
+        log('Updating ID ' + eid + '...');
+        result = await _supabase.from('products').update({ product_name: productName, price: productPrice }).eq('id', eid);
+    } else {
+        log('Inserting "' + productName + '"...');
+        result = await _supabase.from('products').insert([{ product_name: productName, price: productPrice }]).select();
+    }
+
+    if (result.error) {
+        console.error('Save error:', result.error);
+        setStatus('Error: ' + result.error.message, false);
+        log('Error: ' + result.error.message);
+    } else {
+        if (eid) {
+            setStatus('Product updated!', true);
+            log('Updated ID ' + eid);
+        } else {
+            setStatus('Success! ID: ' + result.data[0].id, true);
+            log('Inserted ID ' + result.data[0].id);
+        }
+        cancelEdit();
+        document.getElementById('name').value = '';
+        document.getElementById('price').value = '';
+        await load();
+    }
+});
+
+// ========== INLINE EDIT ==========
+function startInline(id) { editRow = id; render(); var el = document.getElementById('in' + id); if (el) el.focus(); }
+
+async function saveInline(id) {
+    var n = document.getElementById('in' + id).value.trim();
+    var p = parseFloat(document.getElementById('ip' + id).value);
+    if (!n) { setStatus('Name required', false); return; }
+    if (isNaN(p)) { setStatus('Valid price required', false); return; }
+    editRow = null;
+    var result = await _supabase.from('products').update({ product_name: n, price: p }).eq('id', id);
+    if (result.error) { setStatus('Error: ' + result.error.message, false); log('Error: ' + result.error.message); }
+    else { setStatus('Updated!', true); await load(); render(id); }
+}
+
+function cancelEdit() {
+    document.getElementById('editId').value = '';
+    document.getElementById('subBtn').textContent = 'Save Product';
+    document.getElementById('cancelBtn').style.display = 'none';
+}
+
+// ========== DELETE ==========
+async function delProduct(id) {
+    var p = all.find(function(x) { return x.id === id; });
+    if (!p) return;
+    if (!confirm('Delete "' + p.product_name + '" (ID: ' + id + ')?')) return;
+    var result = await _supabase.from('products').delete().eq('id', id);
+    if (result.error) { setStatus('Error: ' + result.error.message, false); log('Error: ' + result.error.message); }
+    else { setStatus('Deleted.', true); log('Deleted ID ' + id); if (document.getElementById('editId').value == id) cancelEdit(); if (editRow === id) editRow = null; await load(); }
+}
+
+// ========== KEYBOARD ==========
+document.addEventListener('keydown', function(e) {
+    if (editRow === null) return;
+    if (e.key === 'Enter') { e.preventDefault(); saveInline(editRow); }
+    if (e.key === 'Escape') { editRow = null; render(); }
+});
+
+// Auto-test on load
+testConnection();
+</script>
 </body>
 </html>

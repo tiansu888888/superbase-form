@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body{font-family:system-ui;background:pink;padding:20px;max-width:700px;margin:0 auto}
+        h2{margin-bottom:14px}
+        input{width:100%;padding:9px 12px;background:#0e1117;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:14px;outline:none;margin-bottom:14px}
+        input:focus{border-color:#3ecf8e}
+        table{width:100%;border-collapse:collapse}
+        th{text-align:left;padding:10px;background:#161b22;color:white;font-size:11px;text-transform:uppercase;border-bottom:1px solid #30363d}
+        td{padding:10px;border-bottom:1px solid #21262d}
+        .price{color:blue ;font-weight:600}
+        .del{background:rgba(248,81,73,.1);color:#f85149;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px}
+        .del:hover{background:rgba(248,81,73,.25)}
+    </style>
+</head>
+<body>
+<h2>View Products </h2> <h2><a href="index.html">&larr; Back</a></h2>
+<input type="text" id="s" placeholder="Search name or ID..." oninput="filter()">
+<table>
+    <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Action</th></tr></thead>
+    <tbody id="t"></tbody>
+</table>
+<script>
+var db=supabase.createClient('https://hhyljcqosuzhvqtolkro.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoeWxqY3Fvc3V6aHZxdG9sa3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU2MDMsImV4cCI6MjA5MDcxMTYwM30.zn5yN_K2v_cTjHTNFDrwEvlfacl7hyUCcPikINAWyS8');
+var data=[];
+
+//SELECT to view all data by id order
+function load(){
+    db.from('products').select('*').order('id').then(function(r){
+        if(r.error){document.getElementById('t').innerHTML='<tr><td colspan="4" style="color:blue">'+r.error.message+'</td></tr>';return}
+        data=r.data;filter();
+    });
+}
+
+//Data filter for search data
+
+function filter(){
+    var q=document.getElementById('s').value.toLowerCase();
+    var f=data.filter(function(p){return p.product_name.toLowerCase().indexOf(q)!==-1||String(p.id).indexOf(q)!==-1});
+    var h='';
+    f.forEach(function(p){h+='<tr><td style="color:blue">'+p.id+'</td><td>'+p.product_name+'</td><td class="price">$'+Number(p.price).toFixed(2)+'</td><td><button class="del" onclick="del('+p.id+',\''+p.product_name.replace(/'/g,"\\'")+'\')">Delete</button></td></tr>'});
+    document.getElementById('t').innerHTML=h||'<tr><td colspan="4" style="color:red">No results</td></tr>';
+}
+
+//Delete data refer id
+function del(id,name){
+    if(!confirm('Delete "'+name+'" (ID:'+id+')?'))return;
+    db.from('products').delete().eq('id',id).then(function(r){
+        if(r.error){alert(r.error.message);return}
+        load();
+    });
+}
+
+load();
+</script>
+</body>
+</html>
