@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Product Form</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
+        form { display: flex; flex-direction: column; gap: 10px; background: #f4f4f4; padding: 20px; border-radius: 8px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px; background-color: #3ecf8e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #36b37e; }
+        .status { margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Add New Product</h2>
+    
+    <form id="productForm">
+        <label for="name">Product Name</label>
+        <input type="text" id="name" name="product_name" required placeholder="e.g. Apple MacBook">
+
+        <label for="price">Price</label>
+        <input type="number" id="price" name="price" step="0.01" required placeholder="e.g. 999.99">
+
+        <button type="submit">Save to Supabase</button>
+    </form>
+
+    <div id="status" class="status"></div>
+
+    <script>
+        // ============================================================
+        // IMPORTANT: REPLACE THESE WITH YOUR REAL KEYS
+        // The Anon Key MUST look like: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        // ============================================================
+        const SUPABASE_URL = 'https://hhyljcqosuzhvqtolkro.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoeWxqY3Fvc3V6aHZxdG9sa3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU2MDMsImV4cCI6MjA5MDcxMTYwM30.zn5yN_K2v_cTjHTNFDrwEvlfacl7hyUCcPikINAWyS8';
+
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const form = document.getElementById('productForm');
+        const statusDiv = document.getElementById('status');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const productName = document.getElementById('name').value;
+            const productPrice = parseFloat(document.getElementById('price').value);
+
+            const newProduct = {
+                product_name: productName,
+                price: productPrice
+            };
+
+            // Insert Data
+            const { data, error } = await _supabase
+                .from('products')
+                .insert([newProduct])
+                .select();
+
+            if (error) {
+                console.error(error);
+                statusDiv.innerHTML = `<span style="color:red">Error: ${error.message}</span>`;
+            } else {
+                statusDiv.innerHTML = `<span style="color:green">Success! Product ID: ${data[0].id}</span>`;
+                form.reset();
+                console.log('Saved data:', data);
+            }
+        });
+    </script>
+</body>
+</html>
